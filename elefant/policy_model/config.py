@@ -177,6 +177,7 @@ class SharedConfig(ConfigBase):
     action_mapping: UniversalAutoregressiveActionMappingConfig = (
         UniversalAutoregressiveActionMappingConfig()
     )
+    load_video_name: Optional[str] = None
 
 
 class InferenceConfig(ConfigBase):
