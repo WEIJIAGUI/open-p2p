@@ -1129,37 +1129,40 @@ class SupervisedDataModule(pl.LightningDataModule):
         )
 
     def setup(self, stage: str):
-        try:
+        # Handle case when trainer is not yet set
+        if hasattr(self, 'trainer') and self.trainer is not None:
             self.global_rank = self.trainer.global_rank
             self.world_size = self.trainer.world_size
+        else:
+            self.global_rank = 0
+            self.world_size = 1
+        
+        logging.info(
+            f"Setting up datasets. global_rank: {self.global_rank}, world_size: {self.world_size}, stage {stage}"
+        )
+        
+        if self._setup_completed:
             logging.info(
-                f"Setting up datasets. global_rank: {self.global_rank}, world_size: {self.world_size}, stage {stage}"
+                f"Setup already completed. global_rank: {self.global_rank}, world_size: {self.world_size}, stage {stage}"
             )
-            if self._setup_completed:
-                logging.info(
-                    f"Setup already completed. global_rank: {self.global_rank}, world_size: {self.world_size}, stage {stage}"
-                )
+            if hasattr(self, 'train_dataset') and self.train_dataset is not None:
                 self.train_dataset._dataset_worker_generation += 1
                 logging.info(
                     f"Train dataset worker generation: {self.train_dataset._dataset_worker_generation}, rank: {self.global_rank}"
                 )
-                for k, v in self.validation_datasets.items():
-                    v._dataset_worker_generation += 1
-                    logging.info(
-                        f"Validation dataset {k} worker generation: {v._dataset_worker_generation}, rank: {self.global_rank}"
-                    )
-                return
-            self._setup_completed = True
+            for k, v in self.validation_datasets.items():
+                v._dataset_worker_generation += 1
+                logging.info(
+                    f"Validation dataset {k} worker generation: {v._dataset_worker_generation}, rank: {self.global_rank}"
+                )
+            return
+        
+        self._setup_completed = True
 
-            # You can use the dummy dataset for testing speed.
-            # self.train_dataset = self._init_dummy_dataset()
-            self.train_dataset = self._init_train_dataset()
-            self._train_dataloader = self.train_dataset.to_dataloader()
-        except Exception as e:
-            logging.warning(
-                f"this warning should only happen during offline validaiton."
-            )
-            self.world_size = 1
+        # You can use the dummy dataset for testing speed.
+        # self.train_dataset = self._init_dummy_dataset()
+        self.train_dataset = self._init_train_dataset()
+        self._train_dataloader = self.train_dataset.to_dataloader()
 
         self.validation_datasets = {}
         for i, validation_dataset_cfg in enumerate(self.validation_dataset_cfgs):
