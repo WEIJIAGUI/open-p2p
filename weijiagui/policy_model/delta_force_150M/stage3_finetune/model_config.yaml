@@ -1,0 +1,140 @@
+inference:
+  checkpoint_path: null
+  mouse_sampling_approach: truncated_normal
+  sampling_temperature: 1.0
+policy_model:
+  action_decoder:
+    embed_dim: 1024
+    n_kv_head: 8
+    n_q_head: 8
+    n_transformer_layers: 3
+  attention_history_len:
+  - 200
+  - 200
+  - 200
+  - 200
+  - 200
+  - 200
+  - 200
+  - 200
+  - 200
+  - 200
+  mask_block_size: 128
+  model_type: dense
+  n_kv_head: 16
+  n_kv_sink_tokens: 0
+  n_q_head: 16
+  n_thinking_tokens: 1
+  n_transformer_layers: 10
+  sparse_moe:
+    experts_per_token: 4
+    lb_loss_weight: 0.01
+    num_experts: 16
+    rz_loss_weight: 0.001
+  top_p: 0.95
+  transformer_dim: 1024
+  z_loss_weight: 0.0001
+shared:
+  action_mapping:
+    max_keys: 4
+    max_mouse_keys: 2
+  fast_dev_run: false
+  frame_height: 192
+  frame_width: 192
+  n_seq_timesteps: 200
+  output_path: weijiagui/policy_model/delta_force_150M
+  precision: bf16-mixed
+  text_tokenizer_config:
+    text_annotation_model_version:
+    - gemini-2.5-flash
+    - gemini-2.5-flash-thinking-0905
+    text_embedding_shape:
+    - 1
+    - 768
+    text_tokenizer_name: gemma
+  tokenizer:
+    conv_tokenizer_config:
+      num_tokens: 1
+    type: conv
+    vit_tokenizer_config:
+      patch_size: 16
+stage3_finetune:
+  accumulate_grad_batches: 1
+  freeze_transformer_layers_for_steps: 0
+  init:
+    random: false
+    stage2_model_path: null
+    stage3_model_path: null
+  n_training_steps: 200000
+  n_validation_steps: 200
+  optim:
+    beta_1: 0.9
+    beta_2: 0.999
+    learning_rate: 0.0001
+    weight_decay: 0.0001
+  save_every_n_steps: 500
+  training_dataset:
+    always_labelled: false
+    batch_size: 1
+    dataset_worker_num_workers_per_gpu: 1
+    dataset_worker_prefetch_factor: 1
+    local_prefix: delta_force_data
+    n_preprocess_threads_per_gpu: 1
+    n_seq_timesteps: 3
+    preprocessed_chunks_queue_size_per_gpu: 1
+    rand_augmentation:
+      augmentations:
+      - spatial_transform
+      - color
+      - planckian
+      - iso_noise
+      - translation
+      - random_blur
+      - sharpness
+      fraction_augmented: 1.0
+    shuffle: true
+    shuffle_buffer_size_per_gpu: 1900
+    shuffled_chunks_queue_size_per_gpu: 1
+    text_annotation_model_version:
+    - gemini-2.5-flash
+    - gemini-2.5-flash-thinking-0905
+    tokenizer:
+      conv_tokenizer_config:
+        num_tokens: 1
+      type: vit
+      vit_tokenizer_config:
+        patch_size: 16
+    warn_on_starvation: false
+  validation_datasets:
+  - always_labelled: false
+    batch_size: 1
+    dataset_worker_num_workers_per_gpu: 1
+    dataset_worker_prefetch_factor: 1
+    local_prefix: delta_force_data
+    n_preprocess_threads_per_gpu: 1
+    n_seq_timesteps: 3
+    preprocessed_chunks_queue_size_per_gpu: 1
+    rand_augmentation:
+      augmentations: []
+      fraction_augmented: 0.0
+    shuffle: true
+    shuffle_buffer_size_per_gpu: 1024
+    shuffled_chunks_queue_size_per_gpu: 1
+    text_annotation_model_version:
+    - gemini-2.5-flash
+    - gemini-2.5-flash-thinking-0905
+    tokenizer:
+      conv_tokenizer_config:
+        num_tokens: 1
+      type: vit
+      vit_tokenizer_config:
+        patch_size: 16
+    validation_name: delta_force_val
+    warn_on_starvation: false
+  validation_step_interval: 2000000
+wandb:
+  enabled: false
+  exp_name: delta-force-stage3
+  project: delta-force-p2p
+  run_id: 9zi6qrhe
+  tags: []
