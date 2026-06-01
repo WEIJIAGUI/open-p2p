@@ -1199,9 +1199,13 @@ class SupervisedDataModule(pl.LightningDataModule):
         }
 
     def train_dataloader(self):
+        if not hasattr(self, '_train_dataloader') or self._train_dataloader is None:
+            self.setup('fit')
         return self._train_dataloader
 
     def val_dataloader(self):
+        if not hasattr(self, '_val_dataloaders') or self._val_dataloaders is None:
+            self.setup('validate')
         return self._val_dataloaders
 
     def get_action_mapping(self):
