@@ -28,6 +28,7 @@ import pydantic
 import torch
 import time
 from elefant.data import zmq_queue
+from elefant.data.rescale.resize import _canonical_resize
 import elefant_rust
 import uuid
 import torch.nn.functional as F
