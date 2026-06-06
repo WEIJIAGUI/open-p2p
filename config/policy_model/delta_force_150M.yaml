@@ -45,7 +45,7 @@ stage3_finetune:
   accumulate_grad_batches: 1
 
   training_dataset:
-    batch_size: 4
+    batch_size: 2
     local_prefix: delta_force_data
     warn_on_starvation: false
     rand_augmentation:
