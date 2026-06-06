@@ -294,3 +294,6 @@ If you use the data or model in your research, please cite our paper:
       archivePrefix={arXiv},
       primaryClass={cs.LG}
 }
+
+
+uv run python elefant/policy_model/train.py     --config config/policy_model/delta_force_150M.yaml     --data_folder /home/weijiagui/open-p2p/delta_force_data

@@ -38,14 +38,14 @@ stage3_finetune:
     beta_1: 0.9
     beta_2: 0.999
 
-  validation_step_interval: 2_000_000
-  n_validation_steps: 200
-  save_every_n_steps: 10000
-  n_training_steps: 100
+  validation_step_interval: 2000
+  n_validation_steps: 10
+  save_every_n_steps: 5000
+  n_training_steps: 10000
   accumulate_grad_batches: 1
 
   training_dataset:
-    batch_size: 8
+    batch_size: 4
     local_prefix: delta_force_data
     warn_on_starvation: false
     rand_augmentation:
