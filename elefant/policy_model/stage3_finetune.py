@@ -1170,6 +1170,7 @@ class SupervisedDataModule(pl.LightningDataModule):
                 ActionLabelVideoProtoDatasetConfig(
                     frame_height=self.cfg.shared.frame_height,
                     frame_width=self.cfg.shared.frame_width,
+                    load_video_name=self.cfg.shared.load_video_name,
                     local_prefix=validation_dataset_cfg.local_prefix,
                     shuffle=False,
                     T=self.cfg.shared.n_seq_timesteps,
