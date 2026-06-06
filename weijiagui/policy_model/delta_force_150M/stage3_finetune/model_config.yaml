@@ -41,6 +41,7 @@ shared:
   fast_dev_run: false
   frame_height: 192
   frame_width: 192
+  load_video_name: video.mp4
   n_seq_timesteps: 200
   output_path: weijiagui/policy_model/delta_force_150M
   precision: bf16-mixed
