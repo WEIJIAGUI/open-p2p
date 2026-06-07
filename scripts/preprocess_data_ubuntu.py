@@ -8,7 +8,14 @@ Ubuntu 视频预处理脚本
 4. 按 delta_force_data 结构保存
 
 使用方法：
-    python3 scripts/preprocess_data_ubuntu.py
+    python3 scripts/preprocess_data_ubuntu.py [--batch-size N] [--clean]
+    
+参数：
+    --batch-size N  每个batch文件夹中的数据数量（默认1）
+    --clean         处理前清理旧数据
+    --dry-run       仅显示将要处理的数据，不实际处理
+
+作者：AI Assistant
 """
 
 import os
@@ -16,6 +23,7 @@ import sys
 import shutil
 import logging
 import subprocess
+import argparse
 from pathlib import Path
 
 # 配置日志
@@ -32,7 +40,6 @@ OUTPUT_DIR = os.path.expanduser("~/open-p2p/delta_force_data")  # 输出目录
 # 视频参数
 FRAME_HEIGHT = 192
 FRAME_WIDTH = 192
-BATCH_SIZE = 100  # 每个 batch 文件夹中的数据数量
 
 
 def check_ffmpeg():
@@ -140,13 +147,14 @@ def get_valid_data_dirs(src_dir: str) -> list:
     return valid_dirs
 
 
-def process_data_dirs(data_dirs: list, output_dir: str) -> dict:
+def process_data_dirs(data_dirs: list, output_dir: str, batch_size: int = 1) -> dict:
     """
     处理所有数据目录，转换为目标结构
     
     Args:
         data_dirs: 有效数据目录列表
         output_dir: 输出根目录
+        batch_size: 每个batch文件夹中的数据数量
     
     Returns:
         处理统计 {"success": int, "failed": int}
@@ -157,6 +165,7 @@ def process_data_dirs(data_dirs: list, output_dir: str) -> dict:
     
     batch_idx = 0
     data_idx = 0
+    batch_dir = None
     
     total = len(data_dirs)
     logger.info(f"开始处理 {total} 个数据目录...")
@@ -164,8 +173,8 @@ def process_data_dirs(data_dirs: list, output_dir: str) -> dict:
     for src_dir_path in data_dirs:
         dir_name = os.path.basename(src_dir_path)
         
-        # 创建批次目录 (每 BATCH_SIZE 个数据创建一个 batch)
-        if data_idx % BATCH_SIZE == 0:
+        # 创建批次目录 (每 batch_size 个数据创建一个 batch)
+        if data_idx % batch_size == 0:
             batch_dir = os.path.join(output_dir, f"batch_{batch_idx:05d}")
             os.makedirs(batch_dir, exist_ok=True)
             batch_idx += 1
@@ -202,29 +211,180 @@ def process_data_dirs(data_dirs: list, output_dir: str) -> dict:
     return stats
 
 
+def verify_output_structure(output_dir: str) -> dict:
+    """
+    验证输出目录结构
+    
+    Returns:
+        {"total_batches": int, "total_data": int, "errors": list}
+    """
+    if not os.path.exists(output_dir):
+        return {"total_batches": 0, "total_data": 0, "errors": ["输出目录不存在"]}
+    
+    stats = {"total_batches": 0, "total_data": 0, "errors": []}
+    
+    # 遍历所有batch目录
+    for batch_name in sorted(os.listdir(output_dir)):
+        batch_path = os.path.join(output_dir, batch_name)
+        
+        if not os.path.isdir(batch_path):
+            continue
+            
+        stats["total_batches"] += 1
+        
+        # 遍历所有data目录
+        for data_name in sorted(os.listdir(batch_path)):
+            data_path = os.path.join(batch_path, data_name)
+            
+            if not os.path.isdir(data_path):
+                continue
+            
+            stats["total_data"] += 1
+            
+            # 检查必需文件
+            proto_path = os.path.join(data_path, 'annotation.proto')
+            video_path = os.path.join(data_path, 'video.mp4')
+            
+            if not os.path.exists(proto_path):
+                stats["errors"].append(f"{batch_name}/{data_name}: 缺少 annotation.proto")
+            if not os.path.exists(video_path):
+                stats["errors"].append(f"{batch_name}/{data_name}: 缺少 video.mp4")
+    
+    return stats
+
+
+def print_structure(output_dir: str, max_display: int = 10):
+    """打印目录结构"""
+    if not os.path.exists(output_dir):
+        logger.warning(f"目录不存在: {output_dir}")
+        return
+    
+    logger.info(f"\n{'='*60}")
+    logger.info(f"输出目录结构: {output_dir}")
+    logger.info(f"{'='*60}")
+    
+    batch_dirs = sorted([d for d in os.listdir(output_dir) 
+                        if os.path.isdir(os.path.join(output_dir, d))])
+    
+    logger.info(f"Batch 数量: {len(batch_dirs)}")
+    
+    for i, batch_name in enumerate(batch_dirs[:max_display]):
+        batch_path = os.path.join(output_dir, batch_name)
+        data_dirs = sorted([d for d in os.listdir(batch_path) 
+                           if os.path.isdir(os.path.join(batch_path, d))])
+        
+        logger.info(f"\n{batch_name}/ ({len(data_dirs)} 个数据)")
+        for data_name in data_dirs[:3]:  # 只显示前3个
+            data_path = os.path.join(batch_path, data_name)
+            files = os.listdir(data_path)
+            logger.info(f"  ├── {data_name}/ ({', '.join(files)})")
+        if len(data_dirs) > 3:
+            logger.info(f"  └── ... 还有 {len(data_dirs) - 3} 个数据")
+    
+    if len(batch_dirs) > max_display:
+        logger.info(f"\n... 还有 {len(batch_dirs) - max_display} 个 batch")
+    
+    # 验证结构
+    logger.info(f"\n{'='*60}")
+    stats = verify_output_structure(output_dir)
+    logger.info(f"验证结果:")
+    logger.info(f"  Batch 数量: {stats['total_batches']}")
+    logger.info(f"  数据总数: {stats['total_data']}")
+    if stats['errors']:
+        logger.warning(f"  错误数: {len(stats['errors'])}")
+        for error in stats['errors'][:5]:
+            logger.warning(f"    - {error}")
+    else:
+        logger.info(f"  错误数: 0 ✓")
+    logger.info(f"{'='*60}\n")
+
+
 def main():
     """主函数"""
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(
+        description="Ubuntu 视频预处理脚本",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--batch-size", "-b",
+        type=int,
+        default=1,
+        help="每个batch文件夹中的数据数量（默认1）"
+    )
+    parser.add_argument(
+        "--clean", "-c",
+        action="store_true",
+        help="处理前清理旧数据"
+    )
+    parser.add_argument(
+        "--dry-run", "-d",
+        action="store_true",
+        help="仅显示将要处理的数据，不实际处理"
+    )
+    parser.add_argument(
+        "--verify", "-v",
+        action="store_true",
+        help="仅验证现有输出目录结构"
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default=SOURCE_DIR,
+        help=f"源目录（默认: {SOURCE_DIR}）"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=OUTPUT_DIR,
+        help=f"输出目录（默认: {OUTPUT_DIR}）"
+    )
+    
+    args = parser.parse_args()
+    
     logger.info("=" * 60)
     logger.info("视频预处理脚本 - Ubuntu 版本")
     logger.info("=" * 60)
+    
+    # 如果只是验证现有结构
+    if args.verify:
+        print_structure(args.output)
+        sys.exit(0)
     
     # 检查 ffmpeg
     if not check_ffmpeg():
         sys.exit(1)
     
     # 检查源目录
-    if not os.path.exists(SOURCE_DIR):
-        logger.error(f"源目录不存在: {SOURCE_DIR}")
+    if not os.path.exists(args.source):
+        logger.error(f"源目录不存在: {args.source}")
         logger.info("请确保 Windows 共享目录已挂载到 /mnt/d/")
         sys.exit(1)
     
-    logger.info(f"源目录: {SOURCE_DIR}")
-    logger.info(f"输出目录: {OUTPUT_DIR}")
+    logger.info(f"源目录: {args.source}")
+    logger.info(f"输出目录: {args.output}")
     logger.info(f"目标分辨率: {FRAME_WIDTH}x{FRAME_HEIGHT}")
+    logger.info(f"批次大小: {args.batch_size} (每个batch中的数据数量)")
     logger.info("")
     
+    # 清理旧数据
+    if args.clean:
+        if os.path.exists(args.output):
+            logger.warning(f"即将删除目录: {args.output}")
+            response = input("确认删除? (y/n): ").strip().lower()
+            if response == 'y':
+                shutil.rmtree(args.output)
+                logger.info("已删除旧数据")
+            else:
+                logger.info("取消清理")
+    else:
+        # 显示现有结构
+        if os.path.exists(args.output):
+            logger.info("现有输出目录:")
+            print_structure(args.output)
+    
     # 获取有效数据目录
-    data_dirs = get_valid_data_dirs(SOURCE_DIR)
+    data_dirs = get_valid_data_dirs(args.source)
     
     if not data_dirs:
         logger.warning("没有找到有效的数据目录")
@@ -232,6 +392,20 @@ def main():
     
     logger.info(f"找到 {len(data_dirs)} 个有效数据目录")
     logger.info("")
+    
+    # Dry run 模式
+    if args.dry_run:
+        logger.info("Dry run 模式 - 仅显示将要处理的数据:")
+        for i, src_dir in enumerate(data_dirs[:10]):
+            logger.info(f"  {i+1}. {os.path.basename(src_dir)}")
+        if len(data_dirs) > 10:
+            logger.info(f"  ... 还有 {len(data_dirs) - 10} 个")
+        logger.info("")
+        logger.info(f"将会创建:")
+        estimated_batches = (len(data_dirs) + args.batch_size - 1) // args.batch_size
+        logger.info(f"  - 约 {estimated_batches} 个 batch 目录")
+        logger.info(f"  - {len(data_dirs)} 个 data 目录")
+        sys.exit(0)
     
     # 确认继续
     response = input(f"是否开始处理? (y/n): ").strip().lower()
@@ -241,7 +415,7 @@ def main():
     
     # 处理数据
     logger.info("")
-    stats = process_data_dirs(data_dirs, OUTPUT_DIR)
+    stats = process_data_dirs(data_dirs, args.output, args.batch_size)
     
     # 输出结果
     logger.info("")
@@ -249,8 +423,11 @@ def main():
     logger.info("处理完成!")
     logger.info(f"成功: {stats['success']}")
     logger.info(f"失败: {stats['failed']}")
-    logger.info(f"输出目录: {OUTPUT_DIR}")
+    logger.info(f"输出目录: {args.output}")
     logger.info("=" * 60)
+    
+    # 显示最终结构
+    print_structure(args.output)
 
 
 if __name__ == "__main__":
