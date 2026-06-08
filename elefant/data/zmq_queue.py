@@ -32,7 +32,7 @@ mp.set_sharing_strategy('file_system')
 def _convert_tensors_to_numpy(obj):
     """Recursively convert torch tensors to numpy arrays to avoid shared memory issues in ZMQ."""
     if isinstance(obj, torch.Tensor):
-        return ('__tensor__', obj.detach().cpu().numpy(), str(obj.dtype))
+        return ('__tensor__', obj.detach().cpu().numpy(), obj.dtype.name)
     elif isinstance(obj, dict):
         return {k: _convert_tensors_to_numpy(v) for k, v in obj.items()}
     elif isinstance(obj, (list, tuple)):
@@ -45,9 +45,8 @@ def _convert_tensors_to_numpy(obj):
 def _convert_numpy_to_tensors(obj):
     """Recursively convert numpy arrays back to torch tensors."""
     if isinstance(obj, tuple) and len(obj) == 3 and obj[0] == '__tensor__':
-        arr, dtype_str = obj[1], obj[2]
-        tensor = torch.from_numpy(arr)
-        return tensor.to(getattr(torch, dtype_str))
+        arr, dtype_name = obj[1], obj[2]
+        return torch.from_numpy(arr)
     elif isinstance(obj, dict):
         return {k: _convert_numpy_to_tensors(v) for k, v in obj.items()}
     elif isinstance(obj, list):
