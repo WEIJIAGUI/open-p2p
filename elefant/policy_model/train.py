@@ -11,7 +11,11 @@ from elefant.config import load_config
 from elefant.policy_model.stage3_finetune import train_stage3_finetune
 import logging
 import torch
+import torch.multiprocessing as mp
 import elefant.torch
+
+# 使用 file_system 共享策略避免 /dev/shm 限制
+mp.set_sharing_strategy('file_system')
 
 
 def lightning_main():
