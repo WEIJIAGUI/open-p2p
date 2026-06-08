@@ -36,8 +36,8 @@ def _convert_tensors_to_numpy(obj):
     elif isinstance(obj, dict):
         return {k: _convert_tensors_to_numpy(v) for k, v in obj.items()}
     elif isinstance(obj, (list, tuple)):
-        converted = [_convert_tensors_to_numpy(item) for item in obj]
-        return type(obj)(converted)
+        # Convert all sequences to lists to avoid namedtuple reconstruction issues
+        return [_convert_tensors_to_numpy(item) for item in obj]
     else:
         return obj
 
@@ -50,9 +50,8 @@ def _convert_numpy_to_tensors(obj):
         return tensor.to(getattr(torch, dtype_str))
     elif isinstance(obj, dict):
         return {k: _convert_numpy_to_tensors(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        converted = [_convert_numpy_to_tensors(item) for item in obj]
-        return type(obj)(converted)
+    elif isinstance(obj, list):
+        return [_convert_numpy_to_tensors(item) for item in obj]
     else:
         return obj
 
