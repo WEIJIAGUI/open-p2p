@@ -606,7 +606,7 @@ class VideoProtoDataset(torch.utils.data.IterableDataset, ABC):
             batch_size=self.config.batch_size,
             prefetch_factor=self.config.dataset_worker_prefetch_factor,
             num_workers=self.config.dataset_worker_num_workers,
-            pin_memory=False,
+            pin_memory=True,
             drop_last=True,
             shuffle=False,
             timeout=60 * 30,

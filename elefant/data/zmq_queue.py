@@ -9,7 +9,6 @@ import time
 from multiprocessing.reduction import ForkingPickler
 import io
 from typing import Optional
-import numpy as np
 
 
 SERVER_CLOSE_MSG = b"server_close"
@@ -29,32 +28,6 @@ _set_mp_authkey()
 mp.set_sharing_strategy('file_system')
 
 
-def _convert_tensors_to_numpy(obj):
-    """Recursively convert torch tensors to numpy arrays to avoid shared memory issues in ZMQ."""
-    if isinstance(obj, torch.Tensor):
-        return ('__tensor__', obj.detach().cpu().numpy(), obj.dtype.name)
-    elif isinstance(obj, dict):
-        return {k: _convert_tensors_to_numpy(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        # Convert all sequences to lists to avoid namedtuple reconstruction issues
-        return [_convert_tensors_to_numpy(item) for item in obj]
-    else:
-        return obj
-
-
-def _convert_numpy_to_tensors(obj):
-    """Recursively convert numpy arrays back to torch tensors."""
-    if isinstance(obj, tuple) and len(obj) == 3 and obj[0] == '__tensor__':
-        arr, dtype_name = obj[1], obj[2]
-        return torch.from_numpy(arr)
-    elif isinstance(obj, dict):
-        return {k: _convert_numpy_to_tensors(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_convert_numpy_to_tensors(item) for item in obj]
-    else:
-        return obj
-
-
 class ZMQQueueServer:
     def __init__(self, url: str, per_client_max_size: int, n_clients: int):
         _set_mp_authkey()
@@ -70,9 +43,7 @@ class ZMQQueueServer:
 
     def _pickle_item(self, item):
         buf = io.BytesIO()
-        # Convert tensors to numpy to avoid shared memory allocation
-        item = _convert_tensors_to_numpy(item)
-        pickle.dump(item, buf, pickle.HIGHEST_PROTOCOL)
+        ForkingPickler(buf, pickle.HIGHEST_PROTOCOL).dump(item)
         return buf.getvalue()  # Return bytes, not BytesIO
 
     def put(
@@ -117,8 +88,6 @@ class ZMQQueueClient:
         #     f"Client {self._url}/{self._client_id} got item. item len={len(item)}"
         # )
         item = pickle.loads(item)
-        # Convert numpy arrays back to tensors
-        item = _convert_numpy_to_tensors(item)
         # logging.info(f"Client {self._url}/{self._client_id} unpickled item")
         return item
 
