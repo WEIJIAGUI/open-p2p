@@ -1,3 +1,10 @@
+import os
+
+# 设置环境变量以优化性能
+os.environ["TORCH_SHOW_DISPLAY_PROGRESS"] = "0"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import argparse
 from elefant.policy_model.config import LightningPolicyConfig
 from elefant.config import load_config
